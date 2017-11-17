@@ -1,6 +1,6 @@
 /*
  * sfun_decode.c: Simulink S-function for SBGC API decoding
- *
+ * 
  * Joep Linssen, 8 Dec 2017
  */
 
@@ -17,7 +17,7 @@
 /*
  * Include the SBGC API
  */
-#include "lib/SBGC.h"
+#include "lib/sbgc-api-examples/libraries/SBGC_lib/SBGC.h"
 
 /* Error handling
  * --------------
@@ -61,15 +61,13 @@ static void mdlInitializeSizes(SimStruct *S)
 
     if (!ssSetNumInputPorts(S, 1)) return;
     ssSetInputPortRequiredContiguous(S, 0, true); /*direct input signal access*/
-    /*
-     * Set direct feedthrough flag (1=yes, 0=no).
-     * A port has direct feedthrough if the input is used in either
-     * the mdlOutputs or mdlGetTimeOfNextVarHit functions.
-     */
-    ssSetInputPortDirectFeedThrough(S, 0, 1);
+    ssSetInputPortDirectFeedThrough(S, 0, 1); /* input is used in mdlOutputs */
     ssSetInputPortDataType(S, 0, SS_UINT8);
+    ssSetInputPortVectorDimension(S, 0, SBGC_CMD_MAX_BYTES);
 
-    if (!ssSetNumOutputPorts(S, 1)) return;
+    if (!ssSetNumOutputPorts(S, 1)) return; /* One output! */
+    
+//GOT IT UNTIL HERE!!!!! THINK ABOUT OUTPUT AMOUNTS 
     ssSetOutputPortWidth(S, 0, 1);
 
     ssSetNumSampleTimes(S, 1);
