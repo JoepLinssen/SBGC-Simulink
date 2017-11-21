@@ -65,22 +65,17 @@ static void mdlInitializeSizes(SimStruct *S)
     ssSetInputPortDataType(S, 0, SS_UINT8);
     ssSetInputPortVectorDimension(S, 0, SBGC_CMD_MAX_BYTES);
 
-    if (!ssSetNumOutputPorts(S, 1)) return; /* One output! */
+    if (!ssSetNumOutputPorts(S, 2)) return; /* Two outputs! */
     
-//GOT IT UNTIL HERE!!!!! THINK ABOUT OUTPUT AMOUNTS 
-    ssSetOutputPortWidth(S, 0, 1);
+    ssSetOutputPortWidth(S, 0, 1); /* 1st output is length 1 */
+    ssSetOutputPortWidth(S, 1, 1); /* 2nd output is length 1 */
 
     ssSetNumSampleTimes(S, 1);
-    ssSetNumRWork(S, 0);
-    ssSetNumIWork(S, 0);
-    ssSetNumPWork(S, 0);
-    ssSetNumModes(S, 0);
-    ssSetNumNonsampledZCs(S, 0);
 
     /* Specify the sim state compliance to be same as a built-in block */
     ssSetSimStateCompliance(S, USE_DEFAULT_SIM_STATE);
 
-    ssSetOptions(S, 0);
+    ssSetOptions(S, 0); /* general options (SS_OPTION_xx) */
 }
 
 
@@ -93,14 +88,14 @@ static void mdlInitializeSizes(SimStruct *S)
  */
 static void mdlInitializeSampleTimes(SimStruct *S)
 {
-    ssSetSampleTime(S, 0, CONTINUOUS_SAMPLE_TIME);
+    ssSetSampleTime(S, 0, INHERITED_SAMPLE_TIME);
     ssSetOffsetTime(S, 0, 0.0);
-
+    ssSetModelReferenceSampleTimeDefaultInheritance(S);
 }
 
 
 
-#define MDL_INITIALIZE_CONDITIONS   /* Change to #undef to remove function */
+#undef MDL_INITIALIZE_CONDITIONS   /* Change to #undef to remove function */
 #if defined(MDL_INITIALIZE_CONDITIONS)
   /* Function: mdlInitializeConditions ========================================
    * Abstract:
@@ -120,7 +115,7 @@ static void mdlInitializeSampleTimes(SimStruct *S)
 
 
 
-#define MDL_START  /* Change to #undef to remove function */
+#undef MDL_START  /* Change to #undef to remove function */
 #if defined(MDL_START) 
   /* Function: mdlStart =======================================================
    * Abstract:
@@ -141,15 +136,28 @@ static void mdlInitializeSampleTimes(SimStruct *S)
  *    block.
  */
 static void mdlOutputs(SimStruct *S, int_T tid)
-{
-    const real_T *u = (const real_T*) ssGetInputPortSignal(S,0);
-    real_T       *y = ssGetOutputPortSignal(S,0);
-    y[0] = u[0];
+{ // Assumes that the full message is provided on every call
+    int_T           len_uvec = ssGetInputPortWidth(S, 0);
+    const uint8_T*  uvec     = (uint8_T*) ssGetInputPortSignal(S, 0);
+    real_T          *y       = ssGetOutputPortRealSignal(S, 0);
+    
+    SBGC_Parser sbgc_parser;
+    sbgc_parser.init_noCom();
+    
+    for (int uidx = 0; uidx < len_uvec; uidx++) {
+        if(sbgc_parser.process_char(uvec[uidx])) {
+            //Message parsed - return ID for now
+            SerialCommand &cmd = sbgc_parser.in_cmd;
+            y[0] = (real_T) cmd.id;
+        }
+    }
+    
+    y[1] = (real_T)len_uvec;
 }
 
 
 
-#define MDL_UPDATE  /* Change to #undef to remove function */
+#undef MDL_UPDATE  /* Change to #undef to remove function */
 #if defined(MDL_UPDATE)
   /* Function: mdlUpdate ======================================================
    * Abstract:
@@ -162,21 +170,6 @@ static void mdlOutputs(SimStruct *S, int_T tid)
   {
   }
 #endif /* MDL_UPDATE */
-
-
-
-#define MDL_DERIVATIVES  /* Change to #undef to remove function */
-#if defined(MDL_DERIVATIVES)
-  /* Function: mdlDerivatives =================================================
-   * Abstract:
-   *    In this function, you compute the S-function block's derivatives.
-   *    The derivatives are placed in the derivative vector, ssGetdX(S).
-   */
-  static void mdlDerivatives(SimStruct *S)
-  {
-  }
-#endif /* MDL_DERIVATIVES */
-
 
 
 /* Function: mdlTerminate =====================================================
