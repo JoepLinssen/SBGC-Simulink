@@ -1,4 +1,5 @@
 *.asv
 *.autosave
+*.original
 *.mexw64
 slprj/
