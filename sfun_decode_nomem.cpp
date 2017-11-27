@@ -5,7 +5,7 @@
  */
 
 
-#define S_FUNCTION_NAME  sfun_decode
+#define S_FUNCTION_NAME  sfun_decode_nomem
 #define S_FUNCTION_LEVEL 2
 
 /*
@@ -65,7 +65,7 @@ static void mdlInitializeSizes(SimStruct *S)
     ssSetInputPortDirectFeedThrough(S, 0, 1); /* input is used in mdlOutputs */
     ssSetInputPortDirectFeedThrough(S, 1, 1); /* input is used in mdlOutputs */
     ssSetInputPortDataType(S, 0, SS_UINT8);
-    ssSetInputPortDataType(S, 1, SS_UINT8);
+    ssSetInputPortDataType(S, 1, SS_DOUBLE);
     ssSetInputPortVectorDimension(S, 0, SBGC_CMD_MAX_BYTES);
     ssSetInputPortWidth(S, 1, 1);
 
@@ -142,15 +142,15 @@ static void mdlInitializeSampleTimes(SimStruct *S)
 static void mdlOutputs(SimStruct *S, int_T tid)
 { // Tries to decode a full message from the input (without keeping memory of previous inputs / non-complete messages)
     const uint8_T   *uvec     = (uint8_T*) ssGetInputPortSignal(S, 0);
-    uint8_T         *status   = (uint8_T*) ssGetInputPortSignal(S, 1); //1 if data available, 0 otherwise
+    real_T          *status   = (real_T*) ssGetInputPortSignal(S, 1); //1 if data available, 0 otherwise
     int_T           len_uvec  = ssGetInputPortWidth(S, 0);
     real_T          *y0       = ssGetOutputPortRealSignal(S, 0);
     real_T          *y1       = ssGetOutputPortRealSignal(S, 1);
     
 
-    if(status[0] == 0) {
-      y0[0] = 0;
-      y1[0] = 0;
+    if(status[0] < 0.5f) {
+      y0[0] = -1;
+      y1[0] = -1;
       return;
     }
 
@@ -160,7 +160,7 @@ static void mdlOutputs(SimStruct *S, int_T tid)
     sbgc_parser.init_noCom();
     
     uint16_T numErr_start = sbgc_parser.get_parse_error_count();
-    int_T done;
+    uint8_T done;
     for (int uidx = 0; uidx < len_uvec; uidx++) {
         /* process_char tries to decode a full message.
          * It discards any first character that is not the header char '>', i.e 62
@@ -175,13 +175,14 @@ static void mdlOutputs(SimStruct *S, int_T tid)
             sbgc_parser.reset();
         }
 
-        if(done) {
+        if(done > 0) {
           SerialCommand &cmd = sbgc_parser.in_cmd;
-          y0[0] = (real_T) cmd.id;  
+          y0[0] = (real_T) cmd.id; 
+          break; 
         }
     }
 
-    y1[1] = (real_T) done;
+    y1[0] = (real_T) done;
 }
 
 
