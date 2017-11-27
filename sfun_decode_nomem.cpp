@@ -140,23 +140,48 @@ static void mdlInitializeSampleTimes(SimStruct *S)
  *    block.
  */
 static void mdlOutputs(SimStruct *S, int_T tid)
-{ // Assumes that the full message is provided on every call
-    int_T           len_uvec = ssGetInputPortWidth(S, 0);
-    const uint8_T*  uvec     = (uint8_T*) ssGetInputPortSignal(S, 0);
-    real_T          *y       = ssGetOutputPortRealSignal(S, 0);
+{ // Tries to decode a full message from the input (without keeping memory of previous inputs / non-complete messages)
+    const uint8_T   *uvec     = (uint8_T*) ssGetInputPortSignal(S, 0);
+    uint8_T         *status   = (uint8_T*) ssGetInputPortSignal(S, 1); //1 if data available, 0 otherwise
+    int_T           len_uvec  = ssGetInputPortWidth(S, 0);
+    real_T          *y0       = ssGetOutputPortRealSignal(S, 0);
+    real_T          *y1       = ssGetOutputPortRealSignal(S, 1);
+    
+
+    if(status[0] == 0) {
+      y0[0] = 0;
+      y1[0] = 0;
+      return;
+    }
+
+    y0[0] = 0; //preset y0 for if decoding fails
     
     SBGC_Parser sbgc_parser;
     sbgc_parser.init_noCom();
     
+    uint16_T numErr_start = sbgc_parser.get_parse_error_count();
+    int_T done;
     for (int uidx = 0; uidx < len_uvec; uidx++) {
-        if(sbgc_parser.process_char(uvec[uidx])) {
-            //Message parsed - return ID for now
-            SerialCommand &cmd = sbgc_parser.in_cmd;
-            y[0] = (real_T) cmd.id;
+        /* process_char tries to decode a full message.
+         * It discards any first character that is not the header char '>', i.e 62
+         * It returns 0 while busy.
+         * If parse_error_count is increased while processing chars, an error has occured.
+         * It returns 1 when done.
+         */
+        done = sbgc_parser.process_char(uvec[uidx]);
+
+        if(sbgc_parser.get_parse_error_count() > numErr_start) {
+            numErr_start = sbgc_parser.get_parse_error_count();
+            sbgc_parser.reset();
+        }
+
+        if(done) {
+          SerialCommand &cmd = sbgc_parser.in_cmd;
+          y0[0] = (real_T) cmd.id;  
         }
     }
-    
-    y[1] = (real_T)len_uvec;
+
+    y1[1] = (real_T) done;
 }
 
 
