@@ -59,11 +59,15 @@ static void mdlInitializeSizes(SimStruct *S)
         return;
     }
 
-    if (!ssSetNumInputPorts(S, 1)) return;
+    if (!ssSetNumInputPorts(S, 2)) return;
     ssSetInputPortRequiredContiguous(S, 0, true); /*direct input signal access*/
+    ssSetInputPortRequiredContiguous(S, 1, true); /*direct input signal access*/
     ssSetInputPortDirectFeedThrough(S, 0, 1); /* input is used in mdlOutputs */
+    ssSetInputPortDirectFeedThrough(S, 1, 1); /* input is used in mdlOutputs */
     ssSetInputPortDataType(S, 0, SS_UINT8);
+    ssSetInputPortDataType(S, 1, SS_UINT8);
     ssSetInputPortVectorDimension(S, 0, SBGC_CMD_MAX_BYTES);
+    ssSetInputPortWidth(S, 1, 1);
 
     if (!ssSetNumOutputPorts(S, 2)) return; /* Two outputs! */
     
